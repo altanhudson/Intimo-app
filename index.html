@@ -127,7 +127,8 @@
 
 <script>
   const AVAILABLE_TAGS = [
-    "Tradicional", "Oral", "Anal", "Rápido (Quickie)", 
+    "Tradicional", "Perrito", "Ella arriba", "Costado", "Costado de frente",
+    "Oral", "Oral completo", "Anal", "Rápido (Quickie)", 
     "Juguetes", "Lubricante", "Sin protección", "Con protección", 
     "Mañanero", "Ducha / Agua", "Nuevo lugar", "Fantasía / Rol"
   ];
@@ -160,7 +161,6 @@
   }
 
   function calculatePredictions() {
-    // Buscar inicios de período (días con period:true donde el día anterior no tuvo period:true)
     const allDates = Object.keys(appData).sort();
     const periodStarts = [];
 
