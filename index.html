@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Íntimo - Registro & Ciclo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .day-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0.75rem; cursor: pointer; transition: 0.15s; position: relative; }
+    .day-cell:hover { background-color: #334155; }
+    .day-selected { outline: 2px solid #f43f5e; background-color: #1e293b; }
+    .tag-btn.active { background-color: #f43f5e; color: white; border-color: #f43f5e; }
+  </style>
+</head>
+<body class="max-w-md mx-auto min-h-screen pb-10 px-4 pt-6">
+
+  <!-- Header -->
+  <header class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-2xl font-bold bg-gradient-to-r from-rose-500 to-purple-500 bg-clip-text text-transparent">Íntimo</h1>
+      <p class="text-xs text-slate-400">Registro de pareja & ciclo</p>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="exportData()" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700">Exportar</button>
+      <label class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 cursor-pointer">
+        Importar <input type="file" id="importFile" class="hidden" onchange="importData(event)">
+      </label>
+    </div>
+  </header>
+
+  <!-- Predicciones -->
+  <section class="grid grid-cols-2 gap-3 mb-6">
+    <div class="bg-slate-800/80 border border-slate-700 p-3 rounded-xl">
+      <span class="text-xs text-pink-400 font-semibold">🩸 Próximo Período</span>
+      <p id="predPeriod" class="text-sm font-bold mt-1">Sin datos</p>
+      <p id="predCycleLen" class="text-[11px] text-slate-400">Ciclo prom: 28 días</p>
+    </div>
+    <div class="bg-slate-800/80 border border-slate-700 p-3 rounded-xl">
+      <span class="text-xs text-purple-400 font-semibold">✨ Ventana Fértil</span>
+      <p id="predFertile" class="text-sm font-bold mt-1">Sin datos</p>
+      <p class="text-[11px] text-slate-400">Estimación automática</p>
+    </div>
+  </section>
+
+  <!-- Navegación del Calendario -->
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 shadow-lg">
+    <div class="flex justify-between items-center mb-4">
+      <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-700 rounded-lg">◀</button>
+      <h2 id="monthLabel" class="font-bold text-lg capitalize"></h2>
+      <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-700 rounded-lg">▶</button>
+    </div>
+
+    <div class="grid grid-cols-7 gap-1 text-center text-xs text-slate-400 mb-2 font-medium">
+      <div>Do</div><div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div>
+    </div>
+    <div id="calendarGrid" class="grid grid-cols-7 gap-1 text-sm"></div>
+
+    <!-- Leyenda -->
+    <div class="flex justify-center gap-4 mt-4 pt-3 border-t border-slate-700/60 text-xs text-slate-400">
+      <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Relaciones</span>
+      <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-pink-500"></span> Período</span>
+      <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span> Fértil</span>
+    </div>
+  </div>
+
+  <!-- Panel de Edición del Día -->
+  <div id="dayModal" class="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 hidden">
+    <div class="flex justify-between items-center mb-3">
+      <h3 id="selectedDateLabel" class="font-bold text-base text-rose-400"></h3>
+      <button onclick="closeModal()" class="text-slate-400 text-sm hover:text-white">✕</button>
+    </div>
+
+    <!-- Período -->
+    <div class="flex items-center justify-between py-2 border-b border-slate-700 mb-3">
+      <span class="text-sm font-medium">🩸 ¿Día de período menstrual?</span>
+      <input type="checkbox" id="periodCheck" class="w-5 h-5 accent-pink-500 rounded cursor-pointer">
+    </div>
+
+    <!-- Cantidad de veces -->
+    <div class="flex items-center justify-between py-2 mb-3">
+      <span class="text-sm font-medium">🔥 Cantidad de veces hoy</span>
+      <div class="flex items-center gap-3">
+        <button onclick="updateCount(-1)" class="w-8 h-8 rounded-lg bg-slate-700 font-bold hover:bg-slate-600">-</button>
+        <span id="sexCount" class="font-bold text-lg w-4 text-center">0</span>
+        <button onclick="updateCount(1)" class="w-8 h-8 rounded-lg bg-rose-600 font-bold hover:bg-rose-500">+</button>
+      </div>
+    </div>
+
+    <!-- Formas / Prácticas -->
+    <div id="detailsSection" class="mb-4">
+      <p class="text-xs text-slate-400 mb-2">¿De qué forma / detalles? (podés marcar varias)</p>
+      <div id="tagsContainer" class="flex flex-wrap gap-1.5"></div>
+    </div>
+
+    <!-- Notas -->
+    <textarea id="dayNotes" rows="2" placeholder="Notas o detalles adicionales..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mb-3 focus:outline-none focus:border-rose-500"></textarea>
+
+    <div class="flex gap-2">
+      <button onclick="saveDay()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2 rounded-xl text-sm transition">Guardar día</button>
+      <button onclick="clearDay()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-xl text-sm transition">Borrar</button>
+    </div>
+  </div>
+
+  <!-- Estadísticas -->
+  <section class="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+    <h3 class="font-bold text-base mb-3">📊 Estadísticas del Mes</h3>
+    <div class="grid grid-cols-3 gap-2 text-center mb-4">
+      <div class="bg-slate-900/70 p-2.5 rounded-xl">
+        <p id="statTotalTimes" class="text-xl font-bold text-rose-500">0</p>
+        <p class="text-[11px] text-slate-400">Veces en el mes</p>
+      </div>
+      <div class="bg-slate-900/70 p-2.5 rounded-xl">
+        <p id="statActiveDays" class="text-xl font-bold text-purple-400">0</p>
+        <p class="text-[11px] text-slate-400">Días activos</p>
+      </div>
+      <div class="bg-slate-900/70 p-2.5 rounded-xl">
+        <p id="statAvg" class="text-xl font-bold text-emerald-400">0</p>
+        <p class="text-[11px] text-slate-400">Prom. / día activo</p>
+      </div>
+    </div>
+    <div>
+      <p class="text-xs text-slate-400 mb-2">Formas más frecuentes (histórico):</p>
+      <div id="topTagsStats" class="space-y-1.5 text-xs"></div>
+    </div>
+  </section>
+
+<script>
+  const AVAILABLE_TAGS = [
+    "Tradicional", "Oral", "Anal", "Rápido (Quickie)", 
+    "Juguetes", "Lubricante", "Sin protección", "Con protección", 
+    "Mañanero", "Ducha / Agua", "Nuevo lugar", "Fantasía / Rol"
+  ];
+
+  let appData = JSON.parse(localStorage.getItem('intimo_app_data')) || {};
+  let currentDate = new Date();
+  let selectedDateKey = null;
+  let tempCount = 0;
+  let tempTags = new Set();
+
+  function formatKey(year, month, day) {
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  function initTags() {
+    const container = document.getElementById('tagsContainer');
+    container.innerHTML = '';
+    AVAILABLE_TAGS.forEach(tag => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `tag-btn text-xs px-2.5 py-1 rounded-full border border-slate-600 bg-slate-900 text-slate-300 transition ${tempTags.has(tag) ? 'active' : ''}`;
+      btn.textContent = tag;
+      btn.onclick = () => {
+        if (tempTags.has(tag)) tempTags.delete(tag);
+        else tempTags.add(tag);
+        initTags();
+      };
+      container.appendChild(btn);
+    });
+  }
+
+  function calculatePredictions() {
+    // Buscar inicios de período (días con period:true donde el día anterior no tuvo period:true)
+    const allDates = Object.keys(appData).sort();
+    const periodStarts = [];
+
+    allDates.forEach(dateStr => {
+      if (appData[dateStr]?.period) {
+        const d = new Date(dateStr + "T12:00:00");
+        const prev = new Date(d);
+        prev.setDate(prev.getDate() - 1);
+        const prevKey = formatKey(prev.getFullYear(), prev.getMonth(), prev.getDate());
+        if (!appData[prevKey]?.period) {
+          periodStarts.push(d);
+        }
+      }
+    });
+
+    let avgCycle = 28;
+    if (periodStarts.length >= 2) {
+      let diffs = [];
+      for (let i = 1; i < periodStarts.length; i++) {
+        const diff = Math.round((periodStarts[i] - periodStarts[i-1]) / (1000 * 60 * 60 * 24));
+        if (diff >= 18 && diff <= 45) diffs.push(diff);
+      }
+      if (diffs.length > 0) {
+        avgCycle = Math.round(diffs.reduce((a, b) => a + b, 0) / diffs.length);
+      }
+    }
+
+    const fertileSet = new Set();
+    const predictedPeriodSet = new Set();
+
+    if (periodStarts.length > 0) {
+      const lastStart = periodStarts[periodStarts.length - 1];
+      const nextPeriod = new Date(lastStart);
+      nextPeriod.setDate(nextPeriod.getDate() + avgCycle);
+
+      const ovulation = new Date(nextPeriod);
+      ovulation.setDate(ovulation.getDate() - 14);
+
+      const fertileStart = new Date(ovulation);
+      fertileStart.setDate(fertileStart.getDate() - 4);
+      const fertileEnd = new Date(ovulation);
+      fertileEnd.setDate(fertileEnd.getDate() + 1);
+
+      for (let d = new Date(fertileStart); d <= fertileEnd; d.setDate(d.getDate() + 1)) {
+        fertileSet.add(formatKey(d.getFullYear(), d.getMonth(), d.getDate()));
+      }
+      for (let i = 0; i < 5; i++) {
+        let p = new Date(nextPeriod);
+        p.setDate(p.getDate() + i);
+        predictedPeriodSet.add(formatKey(p.getFullYear(), p.getMonth(), p.getDate()));
+      }
+
+      document.getElementById('predPeriod').textContent = nextPeriod.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+      document.getElementById('predCycleLen').textContent = `Ciclo prom: ${avgCycle} días`;
+      document.getElementById('predFertile').textContent = `${fertileStart.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} al ${fertileEnd.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}`;
+    } else {
+      document.getElementById('predPeriod').textContent = "Marcá un período";
+      document.getElementById('predFertile').textContent = "Marcá un período";
+    }
+
+    return { fertileSet, predictedPeriodSet };
+  }
+
+  function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    document.getElementById('monthLabel').textContent = new Date(year, month, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+
+    const { fertileSet, predictedPeriodSet } = calculatePredictions();
+
+    for (let i = 0; i < firstDay; i++) {
+      grid.appendChild(document.createElement('div'));
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const key = formatKey(year, month, day);
+      const data = appData[key] || {};
+      const cell = document.createElement('div');
+      cell.className = `day-cell bg-slate-900/60 border border-slate-800 ${selectedDateKey === key ? 'day-selected' : ''}`;
+
+      if (data.period) {
+        cell.classList.add('border-pink-500/80', 'bg-pink-950/30');
+      } else if (predictedPeriodSet.has(key)) {
+        cell.classList.add('border-dashed', 'border-pink-500/50');
+      } else if (fertileSet.has(key)) {
+        cell.classList.add('border-purple-500/50', 'bg-purple-950/20');
+      }
+
+      const num = document.createElement('span');
+      num.className = 'text-xs font-semibold';
+      num.textContent = day;
+      cell.appendChild(num);
+
+      const indicators = document.createElement('div');
+      indicators.className = 'flex items-center gap-0.5 mt-1';
+
+      if (data.count > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'text-[10px] bg-rose-600 text-white px-1.5 rounded-full font-bold leading-tight';
+        badge.textContent = `🔥${data.count}`;
+        indicators.appendChild(badge);
+      }
+      if (data.period) {
+        const dot = document.createElement('span');
+        dot.className = 'w-2 h-2 rounded-full bg-pink-500';
+        indicators.appendChild(dot);
+      } else if (fertileSet.has(key)) {
+        const dot = document.createElement('span');
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-purple-400';
+        indicators.appendChild(dot);
+      }
+
+      cell.appendChild(indicators);
+      cell.onclick = () => selectDay(key, day, month, year);
+      grid.appendChild(cell);
+    }
+
+    renderStats(year, month);
+  }
+
+  function selectDay(key, day, month, year) {
+    selectedDateKey = key;
+    const data = appData[key] || { count: 0, period: false, tags: [], notes: '' };
+    tempCount = data.count || 0;
+    tempTags = new Set(data.tags || []);
+
+    document.getElementById('selectedDateLabel').textContent = new Date(year, month, day).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    document.getElementById('periodCheck').checked = !!data.period;
+    document.getElementById('sexCount').textContent = tempCount;
+    document.getElementById('dayNotes').value = data.notes || '';
+
+    initTags();
+    document.getElementById('dayModal').classList.remove('hidden');
+    renderCalendar();
+  }
+
+  function updateCount(delta) {
+    tempCount = Math.max(0, tempCount + delta);
+    document.getElementById('sexCount').textContent = tempCount;
+  }
+
+  function saveDay() {
+    if (!selectedDateKey) return;
+    const period = document.getElementById('periodCheck').checked;
+    const notes = document.getElementById('dayNotes').value.trim();
+    const tags = Array.from(tempTags);
+
+    if (tempCount === 0 && !period && tags.length === 0 && !notes) {
+      delete appData[selectedDateKey];
+    } else {
+      appData[selectedDateKey] = { count: tempCount, period, tags, notes };
+    }
+
+    localStorage.setItem('intimo_app_data', JSON.stringify(appData));
+    closeModal();
+    renderCalendar();
+  }
+
+  function clearDay() {
+    if (!selectedDateKey) return;
+    delete appData[selectedDateKey];
+    localStorage.setItem('intimo_app_data', JSON.stringify(appData));
+    closeModal();
+    renderCalendar();
+  }
+
+  function closeModal() {
+    document.getElementById('dayModal').classList.add('hidden');
+    selectedDateKey = null;
+    renderCalendar();
+  }
+
+  function changeMonth(delta) {
+    currentDate.setMonth(currentDate.getMonth() + delta);
+    renderCalendar();
+  }
+
+  function renderStats(year, month) {
+    const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+    let totalTimes = 0;
+    let activeDays = 0;
+    const tagCounts = {};
+
+    Object.entries(appData).forEach(([key, val]) => {
+      if (key.startsWith(prefix) && val.count > 0) {
+        totalTimes += val.count;
+        activeDays += 1;
+      }
+      if (val.tags) {
+        val.tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+      }
+    });
+
+    document.getElementById('statTotalTimes').textContent = totalTimes;
+    document.getElementById('statActiveDays').textContent = activeDays;
+    document.getElementById('statAvg').textContent = activeDays > 0 ? (totalTimes / activeDays).toFixed(1) : '0';
+
+    const topContainer = document.getElementById('topTagsStats');
+    topContainer.innerHTML = '';
+    const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    if (sortedTags.length === 0) {
+      topContainer.innerHTML = '<p class="text-slate-500">Todavía no hay detalles registrados.</p>';
+      return;
+    }
+
+    const maxCount = sortedTags[0][1];
+    sortedTags.forEach(([tag, count]) => {
+      const pct = Math.round((count / maxCount) * 100);
+      topContainer.innerHTML += `
+        <div>
+          <div class="flex justify-between mb-0.5">
+            <span>${tag}</span>
+            <span class="text-slate-400">${count} días</span>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-1.5">
+            <div class="bg-rose-500 h-1.5 rounded-full" style="width: ${pct}%"></div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  function exportData() {
+    const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `intimo_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+  }
+
+  function importData(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        appData = JSON.parse(event.target.result);
+        localStorage.setItem('intimo_app_data', JSON.stringify(appData));
+        renderCalendar();
+      } catch (err) {
+        alert('Archivo inválido');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  renderCalendar();
+</script>
+</body>
+</html>
