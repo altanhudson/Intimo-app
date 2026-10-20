@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Íntimo Pro - Registro & Ciclo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .day-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0.75rem; cursor: pointer; transition: 0.15s; position: relative; }
+    .day-cell:hover { background-color: #334155; }
+    .day-selected { outline: 2px solid #f43f5e; background-color: #1e293b; }
+    .chip-btn.active { background-color: #f43f5e; color: white; border-color: #f43f5e; }
+    .chip-purple.active { background-color: #a855f7; color: white; border-color: #a855f7; }
+    .chip-pink.active { background-color: #ec4899; color: white; border-color: #ec4899; }
+  </style>
+</head>
+<body class="max-w-md mx-auto min-h-screen pb-12 px-4 pt-5">
+
+  <!-- Botón de autodestrucción/descarga rápida por si lo abrís en Vista Previa -->
+  <div id="dlHelper" class="mb-4 bg-rose-600/20 border border-rose-500 p-3 rounded-xl text-center hidden">
+    <button onclick="downloadSelf()" class="bg-rose-600 text-white font-bold px-4 py-2 rounded-lg text-sm w-full shadow-lg">
+      ⬇️ Descargar archivo index.html
+    </button>
+  </div>
+
+  <!-- Header -->
+  <header class="flex justify-between items-center mb-5">
+    <div>
+      <h1 class="text-2xl font-bold bg-gradient-to-r from-rose-500 to-purple-500 bg-clip-text text-transparent">Íntimo</h1>
+      <p id="coupleSubtitle" class="text-xs text-slate-400 font-medium"></p>
+    </div>
+    <div class="flex gap-1.5 items-center">
+      <button onclick="openSettings()" class="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg border border-slate-700" title="Configuración">⚙️</button>
+      <button onclick="exportData()" class="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg border border-slate-700">Exportar</button>
+      <label class="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg border border-slate-700 cursor-pointer">
+        Importar <input type="file" id="importFile" class="hidden" onchange="importData(event)">
+      </label>
+    </div>
+  </header>
+
+  <!-- Modal de Configuración -->
+  <div id="settingsModal" class="bg-slate-800 border border-slate-600 rounded-2xl p-4 mb-5 hidden shadow-2xl">
+    <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+      <h3 class="font-bold text-base text-rose-400">⚙️ Configuración</h3>
+      <button onclick="closeSettings()" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+
+    <div class="space-y-3 text-sm">
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Nombre 1 (Él)</label>
+          <input id="cfgName1" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Nombre 2 (Ella)</label>
+          <input id="cfgName2" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Días prom. de ciclo</label>
+          <input id="cfgCycleLen" type="number" min="18" max="45" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Días de sangrado</label>
+          <input id="cfgPeriodLen" type="number" min="1" max="12" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm">
+        </div>
+      </div>
+
+      <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-1">
+        <input id="cfgAutoCalc" type="checkbox" class="accent-rose-500 w-4 h-4">
+        Calcular promedio automáticamente según historial
+      </label>
+
+      <div class="pt-2 border-t border-slate-700">
+        <label class="text-xs text-slate-400 block mb-1">Agregar nueva forma / etiqueta personalizada</label>
+        <div class="flex gap-2">
+          <input id="newCustomTag" type="text" placeholder="Ej: Silla, Espejo..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm">
+          <button onclick="addCustomTag()" class="bg-purple-600 hover:bg-purple-500 px-3 py-1.5 rounded-lg text-xs font-semibold">+ Sumar</button>
+        </div>
+      </div>
+
+      <button onclick="saveSettings()" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2 rounded-xl text-sm mt-2">Guardar Configuración</button>
+    </div>
+  </div>
+
+  <!-- Tarjetas Superiores: Ciclo & Última vez -->
+  <section class="grid grid-cols-3 gap-2 mb-5">
+    <div class="bg-slate-800/90 border border-slate-700 p-2.5 rounded-xl">
+      <span class="text-[11px] text-pink-400 font-semibold block">🩸 Próx. Período</span>
+      <p id="predPeriod" class="text-xs font-bold mt-1">Sin datos</p>
+      <p id="predCycleInfo" class="text-[10px] text-slate-400 mt-0.5"></p>
+    </div>
+    <div class="bg-slate-800/90 border border-slate-700 p-2.5 rounded-xl">
+      <span class="text-[11px] text-purple-400 font-semibold block">✨ Ventana Fértil</span>
+      <p id="predFertile" class="text-xs font-bold mt-1">Sin datos</p>
+      <p id="predOvulation" class="text-[10px] text-slate-400 mt-0.5">Ovulación est.</p>
+    </div>
+    <div class="bg-slate-800/90 border border-slate-700 p-2.5 rounded-xl">
+      <span class="text-[11px] text-rose-400 font-semibold block">🔥 Última vez</span>
+      <p id="lastTimeText" class="text-xs font-bold mt-1">-</p>
+      <p id="streakText" class="text-[10px] text-slate-400 mt-0.5">Racha máx: 0 d</p>
+    </div>
+  </section>
+
+  <!-- Calendario -->
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-5 shadow-lg">
+    <div class="flex justify-between items-center mb-3">
+      <button onclick="changeMonth(-1)" class="p-1.5 hover:bg-slate-700 rounded-lg text-slate-300">◀</button>
+      <div class="text-center">
+        <h2 id="monthLabel" class="font-bold text-base capitalize"></h2>
+        <p id="cycleDayBanner" class="text-[11px] text-slate-400"></p>
+      </div>
+      <button onclick="changeMonth(1)" class="p-1.5 hover:bg-slate-700 rounded-lg text-slate-300">▶</button>
+    </div>
+
+    <div class="grid grid-cols-7 gap-1 text-center text-xs text-slate-400 mb-2 font-medium">
+      <div>Do</div><div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div>
+    </div>
+    <div id="calendarGrid" class="grid grid-cols-7 gap-1 text-sm"></div>
+
+    <!-- Leyenda -->
+    <div class="flex flex-wrap justify-center gap-3 mt-3 pt-2.5 border-t border-slate-700/60 text-[11px] text-slate-400">
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Relaciones</span>
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pink-500"></span> Sangrado</span>
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full border border-dashed border-pink-400"></span> Próx. Período</span>
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-400"></span> Fértil</span>
+    </div>
+  </div>
+
+  <!-- Panel de Edición del Día -->
+  <div id="dayModal" class="bg-slate-800 border border-slate-600 rounded-2xl p-4 mb-6 hidden shadow-xl">
+    <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+      <h3 id="selectedDateLabel" class="font-bold text-base text-rose-400 capitalize"></h3>
+      <button onclick="closeModal()" class="text-slate-400 text-sm hover:text-white">✕</button>
+    </div>
+
+    <!-- SECCIÓN 1: CICLO MENSTRUAL -->
+    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/70 mb-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium text-pink-400">🩸 ¿Día de sangrado menstrual?</span>
+        <input type="checkbox" id="periodCheck" onchange="togglePeriodOptions()" class="w-5 h-5 accent-pink-500 rounded cursor-pointer">
+      </div>
+
+      <div id="flowSection" class="mt-3 hidden">
+        <p class="text-xs text-slate-400 mb-1.5">Intensidad del flujo:</p>
+        <div class="grid grid-cols-3 gap-2" id="flowBtns">
+          <button type="button" onclick="setFlow('Leve')" class="flow-btn text-xs py-1 rounded-lg border border-slate-700 bg-slate-800">💧 Leve</button>
+          <button type="button" onclick="setFlow('Medio')" class="flow-btn text-xs py-1 rounded-lg border border-slate-700 bg-slate-800">💧💧 Medio</button>
+          <button type="button" onclick="setFlow('Fuerte')" class="flow-btn text-xs py-1 rounded-lg border border-slate-700 bg-slate-800">💧💧💧 Fuerte</button>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <p class="text-xs text-slate-400 mb-1.5">Síntomas / Estado físico:</p>
+        <div id="symptomsContainer" class="flex flex-wrap gap-1.5"></div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 2: RELACIONES -->
+    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/70 mb-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium text-rose-400">🔥 Cantidad de veces hoy</span>
+        <div class="flex items-center gap-3">
+          <button onclick="updateCount(-1)" class="w-8 h-8 rounded-lg bg-slate-700 font-bold hover:bg-slate-600">-</button>
+          <span id="sexCount" class="font-bold text-lg w-5 text-center">0</span>
+          <button onclick="updateCount(1)" class="w-8 h-8 rounded-lg bg-rose-600 font-bold hover:bg-rose-500">+</button>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs text-slate-400 mb-1.5">¿De qué forma / posturas?</p>
+        <div id="tagsContainer" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <div>
+          <p class="text-xs text-slate-400 mb-1">¿Quién inició?</p>
+          <select id="initiatorSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
+            <option value="">Sin especificar</option>
+            <option value="p1" id="optInit1">Él</option>
+            <option value="p2" id="optInit2">Ella</option>
+            <option value="ambos">Ambos 🔥</option>
+          </select>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400 mb-1">Duración</p>
+          <select id="durationSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
+            <option value="">Sin especificar</option>
+            <option value="Rápido">⚡ Rápido</option>
+            <option value="Normal">⏱️ Normal</option>
+            <option value="Largo">🔥 Largo / Extendido</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <p class="text-xs text-slate-400 mb-1">Lugar</p>
+          <select id="placeSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
+            <option value="">Sin especificar</option>
+            <option value="Cama">🛏️ Cama</option>
+            <option value="Ducha">🚿 Ducha / Baño</option>
+            <option value="Sillón">🛋️ Sillón / Living</option>
+            <option value="Cocina">🍽️ Cocina / Mesa</option>
+            <option value="Auto">🚗 Auto</option>
+            <option value="Hotel / Viaje">🏖️ Hotel / Viaje</option>
+            <option value="Otro">📍 Otro lugar</option>
+          </select>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400 mb-1">Calificación</p>
+          <select id="ratingSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
+            <option value="0">Sin calificar</option>
+            <option value="5">⭐⭐⭐⭐⭐ Increíble</option>
+            <option value="4">⭐⭐⭐⭐ Muy bueno</option>
+            <option value="3">⭐⭐⭐ Bueno</option>
+            <option value="2">⭐⭐ Regular</option>
+            <option value="1">⭐ Flojo</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs text-slate-400 mb-1.5">Clímax / Orgasmo:</p>
+        <div class="flex gap-3 text-xs">
+          <label class="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 cursor-pointer">
+            <input type="checkbox" id="orgasmP1" class="accent-rose-500"> <span id="lblOrg1">Él</span>
+          </label>
+          <label class="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 cursor-pointer">
+            <input type="checkbox" id="orgasmP2" class="accent-rose-500"> <span id="lblOrg2">Ella</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <textarea id="dayNotes" rows="2" placeholder="Notas o detalles para recordar..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs mb-3 focus:outline-none focus:border-rose-500"></textarea>
+
+    <div class="flex gap-2">
+      <button onclick="saveDay()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2.5 rounded-xl text-sm transition">Guardar día</button>
+      <button onclick="clearDay()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2.5 rounded-xl text-sm transition">Borrar</button>
+    </div>
+  </div>
+
+  <!-- Estadísticas Completas -->
+  <section class="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-4">
+    <div class="flex justify-between items-center">
+      <h3 class="font-bold text-base">📊 Estadísticas y Métricas</h3>
+      <span id="statRatingAvg" class="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-semibold">⭐ -</span>
+    </div>
+
+    <div class="grid grid-cols-4 gap-2 text-center">
+      <div class="bg-slate-900/70 p-2 rounded-xl">
+        <p id="statTotalTimes" class="text-lg font-bold text-rose-500">0</p>
+        <p class="text-[10px] text-slate-400">Veces (Mes)</p>
+      </div>
+      <div class="bg-slate-900/70 p-2 rounded-xl">
+        <p id="statActiveDays" class="text-lg font-bold text-purple-400">0</p>
+        <p class="text-[10px] text-slate-400">Días (Mes)</p>
+      </div>
+      <div class="bg-slate-900/70 p-2 rounded-xl">
+        <p id="statYearTotal" class="text-lg font-bold text-emerald-400">0</p>
+        <p class="text-[10px] text-slate-400">Total Año</p>
+      </div>
+      <div class="bg-slate-900/70 p-2 rounded-xl">
+        <p id="statFavDay" class="text-sm font-bold text-sky-400 mt-1">-</p>
+        <p class="text-[10px] text-slate-400">Día favorito</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 text-xs">
+      <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+        <p class="text-slate-400 mb-1.5 font-medium">🚀 ¿Quién inicia más?</p>
+        <div id="initiatorStats" class="space-y-1 text-[11px]"></div>
+      </div>
+      <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+        <p class="text-slate-400 mb-1.5 font-medium">📍 Lugares más usados</p>
+        <div id="placesStats" class="space-y-1 text-[11px]"></div>
+      </div>
+    </div>
+
+    <div>
+      <p class="text-xs text-slate-400 mb-2 font-medium">🔥 Ranking de Formas / Posturas (Histórico):</p>
+      <div id="topTagsStats" class="space-y-1.5 text-xs"></div>
+    </div>
+  </section>
+
+<script>
+  // Mostrar botón de descarga si está dentro de un visor/iframe
+  if (window.location.hostname !== 'altanhudson.github.io') {
+    document.getElementById('dlHelper').classList.remove('hidden');
+  }
+
+  function downloadSelf() {
+    const clone = document.documentElement.cloneNode(true);
+    const helper = clone.querySelector('#dlHelper');
+    if (helper) helper.remove();
+    const htmlContent = "<!DOCTYPE html>\n" + clone.outerHTML;
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'index.html';
+    a.click();
+  }
+
+  const DEFAULT_TAGS = [
+    "Tradicional", "Perrito", "Ella arriba", "Costado", "Costado de frente",
+    "Oral", "Oral completo", "Anal", "Rápido (Quickie)", 
+    "Juguetes", "Lubricante", "Sin protección", "Con protección", 
+    "Mañanero", "Ducha / Agua", "Nuevo lugar", "Fantasía / Rol"
+  ];
+
+  const SYMPTOM_TAGS = [
+    "Cólicos", "Dolor de cabeza", "Hinchazón", "Cansancio",
+    "Pechos sensibles", "Cambios de humor", "Mucho deseo 🔥", "Flujo clara de huevo"
+  ];
+
+  let appData = JSON.parse(localStorage.getItem('intimo_app_data')) || {};
+  let appConfig = JSON.parse(localStorage.getItem('intimo_app_config')) || {
+    name1: "Ale",
+    name2: "Yami",
+    cycleLength: 28,
+    periodLength: 5,
+    autoCalculate: true,
+    customTags: []
+  };
+
+  let currentDate = new Date();
+  let selectedDateKey = null;
+  let tempCount = 0;
+  let tempFlow = "";
+  let tempTags = new Set();
+  let tempSymptoms = new Set();
+
+  function getAllTags() {
+    return [...new Set([...DEFAULT_TAGS, ...(appConfig.customTags || [])])];
+  }
+
+  function formatKey(year, month, day) {
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  function applyConfigLabels() {
+    document.getElementById('coupleSubtitle').textContent = `${appConfig.name1} & ${appConfig.name2}`;
+    document.getElementById('optInit1').textContent = appConfig.name1;
+    document.getElementById('optInit2').textContent = appConfig.name2;
+    document.getElementById('lblOrg1').textContent = appConfig.name1;
+    document.getElementById('lblOrg2').textContent = appConfig.name2;
+  }
+
+  function openSettings() {
+    document.getElementById('cfgName1').value = appConfig.name1;
+    document.getElementById('cfgName2').value = appConfig.name2;
+    document.getElementById('cfgCycleLen').value = appConfig.cycleLength;
+    document.getElementById('cfgPeriodLen').value = appConfig.periodLength;
+    document.getElementById('cfgAutoCalc').checked = appConfig.autoCalculate;
+    document.getElementById('settingsModal').classList.remove('hidden');
+  }
+
+  function closeSettings() {
+    document.getElementById('settingsModal').classList.add('hidden');
+  }
+
+  function saveSettings() {
+    appConfig.name1 = document.getElementById('cfgName1').value.trim() || "Él";
+    appConfig.name2 = document.getElementById('cfgName2').value.trim() || "Ella";
+    appConfig.cycleLength = parseInt(document.getElementById('cfgCycleLen').value) || 28;
+    appConfig.periodLength = parseInt(document.getElementById('cfgPeriodLen').value) || 5;
+    appConfig.autoCalculate = document.getElementById('cfgAutoCalc').checked;
+    localStorage.setItem('intimo_app_config', JSON.stringify(appConfig));
+    applyConfigLabels();
+    closeSettings();
+    renderCalendar();
+  }
+
+  function addCustomTag() {
+    const input = document.getElementById('newCustomTag');
+    const val = input.value.trim();
+    if (!val) return;
+    if (!appConfig.customTags) appConfig.customTags = [];
+    if (!appConfig.customTags.includes(val)) {
+      appConfig.customTags.push(val);
+      localStorage.setItem('intimo_app_config', JSON.stringify(appConfig));
+    }
+    input.value = '';
+    initTags();
+    alert(`Se agregó "${val}" a las opciones.`);
+  }
+
+  function initTags() {
+    const container = document.getElementById('tagsContainer');
+    container.innerHTML = '';
+    getAllTags().forEach(tag => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `chip-btn text-xs px-2.5 py-1 rounded-full border border-slate-600 bg-slate-800 text-slate-300 transition ${tempTags.has(tag) ? 'active' : ''}`;
+      btn.textContent = tag;
+      btn.onclick = () => {
+        if (tempTags.has(tag)) tempTags.delete(tag);
+        else {
+          tempTags.add(tag);
+          if (tempCount === 0) updateCount(1);
+        }
+        initTags();
+      };
+      container.appendChild(btn);
+    });
+
+    const sympContainer = document.getElementById('symptomsContainer');
+    sympContainer.innerHTML = '';
+    SYMPTOM_TAGS.forEach(sym => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `chip-purple text-xs px-2.5 py-1 rounded-full border border-slate-600 bg-slate-800 text-slate-300 transition ${tempSymptoms.has(sym) ? 'active' : ''}`;
+      btn.textContent = sym;
+      btn.onclick = () => {
+        if (tempSymptoms.has(sym)) tempSymptoms.delete(sym);
+        else tempSymptoms.add(sym);
+        initTags();
+      };
+      sympContainer.appendChild(btn);
+    });
+  }
+
+  function togglePeriodOptions() {
+    const checked = document.getElementById('periodCheck').checked;
+    document.getElementById('flowSection').classList.toggle('hidden', !checked);
+    if (checked && !tempFlow) setFlow('Medio');
+    if (!checked) setFlow('');
+  }
+
+  function setFlow(level) {
+    tempFlow = level;
+    document.querySelectorAll('.flow-btn').forEach(btn => {
+      btn.classList.toggle('chip-pink', btn.textContent.includes(level) && level !== '');
+      btn.classList.toggle('active', btn.textContent.includes(level) && level !== '');
+    });
+  }
+
+  function calculatePredictions() {
+    const allDates = Object.keys(appData).sort();
+    const periodStarts = [];
+    let totalBleedingDays = 0;
+
+    allDates.forEach(dateStr => {
+      if (appData[dateStr]?.period) {
+        totalBleedingDays++;
+        const d = new Date(dateStr + "T12:00:00");
+        const prev = new Date(d);
+        prev.setDate(prev.getDate() - 1);
+        const prevKey = formatKey(prev.getFullYear(), prev.getMonth(), prev.getDate());
+        if (!appData[prevKey]?.period) {
+          periodStarts.push(d);
+        }
+      }
+    });
+
+    let avgCycle = appConfig.cycleLength || 28;
+    let avgBleed = appConfig.periodLength || 5;
+
+    if (appConfig.autoCalculate && periodStarts.length >= 2) {
+      let diffs = [];
+      for (let i = 1; i < periodStarts.length; i++) {
+        const diff = Math.round((periodStarts[i] - periodStarts[i-1]) / (1000 * 60 * 60 * 24));
+        if (diff >= 18 && diff <= 45) diffs.push(diff);
+      }
+      if (diffs.length > 0) {
+        avgCycle = Math.round(diffs.reduce((a, b) => a + b, 0) / diffs.length);
+      }
+      if (periodStarts.length > 0) {
+        avgBleed = Math.max(2, Math.min(10, Math.round(totalBleedingDays / periodStarts.length)));
+      }
+    }
+
+    const fertileSet = new Set();
+    const ovulationSet = new Set();
+    const predictedPeriodSet = new Set();
+
+    document.getElementById('predCycleInfo').textContent = `Ciclo: ${avgCycle}d | Sangrado: ${avgBleed}d`;
+
+    if (periodStarts.length > 0) {
+      const lastStart = periodStarts[periodStarts.length - 1];
+      const today = new Date();
+      today.setHours(12,0,0,0);
+
+      const currentCycleDay = Math.floor((today - lastStart) / (1000 * 60 * 60 * 24)) + 1;
+      if (currentCycleDay > 0 && currentCycleDay <= 60) {
+        document.getElementById('cycleDayBanner').textContent = `Hoy: Día ${currentCycleDay} del ciclo`;
+      } else {
+        document.getElementById('cycleDayBanner').textContent = '';
+      }
+
+      const nextPeriod = new Date(lastStart);
+      nextPeriod.setDate(nextPeriod.getDate() + avgCycle);
+
+      const ovulation = new Date(nextPeriod);
+      ovulation.setDate(ovulation.getDate() - 14);
+      ovulationSet.add(formatKey(ovulation.getFullYear(), ovulation.getMonth(), ovulation.getDate()));
+
+      const fertileStart = new Date(ovulation);
+      fertileStart.setDate(fertileStart.getDate() - 4);
+      const fertileEnd = new Date(ovulation);
+      fertileEnd.setDate(fertileEnd.getDate() + 1);
+
+      for (let d = new Date(fertileStart); d <= fertileEnd; d.setDate(d.getDate() + 1)) {
+        fertileSet.add(formatKey(d.getFullYear(), d.getMonth(), d.getDate()));
+      }
+      for (let i = 0; i < avgBleed; i++) {
+        let p = new Date(nextPeriod);
+        p.setDate(p.getDate() + i);
+        predictedPeriodSet.add(formatKey(p.getFullYear(), p.getMonth(), p.getDate()));
+      }
+
+      document.getElementById('predPeriod').textContent = nextPeriod.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+      document.getElementById('predFertile').textContent = `${fertileStart.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} - ${fertileEnd.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}`;
+      document.getElementById('predOvulation').textContent = `Ovul: ${ovulation.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}`;
+    } else {
+      document.getElementById('predPeriod').textContent = "Marcá un período";
+      document.getElementById('predFertile').textContent = "Marcá un período";
+      document.getElementById('cycleDayBanner').textContent = "";
+    }
+
+    return { fertileSet, ovulationSet, predictedPeriodSet };
+  }
+
+  function renderCalendar() {
+    applyConfigLabels();
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    document.getElementById('monthLabel').textContent = new Date(year, month, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+
+    const { fertileSet, ovulationSet, predictedPeriodSet } = calculatePredictions();
+
+    for (let i = 0; i < firstDay; i++) {
+      grid.appendChild(document.createElement('div'));
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const key = formatKey(year, month, day);
+      const data = appData[key] || {};
+      const cell = document.createElement('div');
+      cell.className = `day-cell bg-slate-900/60 border border-slate-800 ${selectedDateKey === key ? 'day-selected' : ''}`;
+
+      if (data.period) {
+        cell.classList.add('border-pink-500/90', 'bg-pink-950/40');
+      } else if (predictedPeriodSet.has(key)) {
+        cell.classList.add('border-dashed', 'border-pink-500/60');
+      } else if (ovulationSet.has(key)) {
+        cell.classList.add('border-purple-400', 'bg-purple-950/40');
+      } else if (fertileSet.has(key)) {
+        cell.classList.add('border-purple-500/40', 'bg-purple-950/20');
+      }
+
+      const num = document.createElement('span');
+      num.className = 'text-xs font-semibold';
+      num.textContent = day;
+      cell.appendChild(num);
+
+      const indicators = document.createElement('div');
+      indicators.className = 'flex items-center gap-0.5 mt-0.5';
+
+      if (data.count > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'text-[9px] bg-rose-600 text-white px-1 rounded-full font-bold leading-tight';
+        badge.textContent = `🔥${data.count}`;
+        indicators.appendChild(badge);
+      }
+      if (data.period) {
+        const dot = document.createElement('span');
+        dot.className = 'w-2 h-2 rounded-full bg-pink-500';
+        indicators.appendChild(dot);
+      } else if (fertileSet.has(key)) {
+        const dot = document.createElement('span');
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-purple-400';
+        indicators.appendChild(dot);
+      }
+
+      cell.appendChild(indicators);
+      cell.onclick = () => selectDay(key, day, month, year);
+      grid.appendChild(cell);
+    }
+
+    renderStats(year, month);
+  }
+
+  function selectDay(key, day, month, year) {
+    selectedDateKey = key;
+    const data = appData[key] || {};
+    tempCount = data.count || 0;
+    tempFlow = data.flow || '';
+    tempTags = new Set(data.tags || []);
+    tempSymptoms = new Set(data.symptoms || []);
+
+    document.getElementById('selectedDateLabel').textContent = new Date(year, month, day).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    document.getElementById('periodCheck').checked = !!data.period;
+    document.getElementById('sexCount').textContent = tempCount;
+    document.getElementById('initiatorSelect').value = data.initiator || '';
+    document.getElementById('durationSelect').value = data.duration || '';
+    document.getElementById('placeSelect').value = data.place || '';
+    document.getElementById('ratingSelect').value = data.rating || '0';
+    document.getElementById('orgasmP1').checked = !!data.orgasmP1;
+    document.getElementById('orgasmP2').checked = !!data.orgasmP2;
+    document.getElementById('dayNotes').value = data.notes || '';
+
+    togglePeriodOptions();
+    if (data.flow) setFlow(data.flow);
+    initTags();
+    document.getElementById('dayModal').classList.remove('hidden');
+    renderCalendar();
+  }
+
+  function updateCount(delta) {
+    tempCount = Math.max(0, tempCount + delta);
+    document.getElementById('sexCount').textContent = tempCount;
+  }
+
+  function saveDay() {
+    if (!selectedDateKey) return;
+    const period = document.getElementById('periodCheck').checked;
+    const notes = document.getElementById('dayNotes').value.trim();
+    const tags = Array.from(tempTags);
+    const symptoms = Array.from(tempSymptoms);
+    const initiator = document.getElementById('initiatorSelect').value;
+    const duration = document.getElementById('durationSelect').value;
+    const place = document.getElementById('placeSelect').value;
+    const rating = parseInt(document.getElementById('ratingSelect').value) || 0;
+    const orgasmP1 = document.getElementById('orgasmP1').checked;
+    const orgasmP2 = document.getElementById('orgasmP2').checked;
+
+    if (tempCount === 0 && !period && tags.length === 0 && symptoms.length === 0 && !notes) {
+      delete appData[selectedDateKey];
+    } else {
+      appData[selectedDateKey] = {
+        count: tempCount,
+        period,
+        flow: period ? tempFlow : '',
+        tags,
+        symptoms,
+        initiator,
+        duration,
+        place,
+        rating,
+        orgasmP1,
+        orgasmP2,
+        notes
+      };
+    }
+
+    localStorage.setItem('intimo_app_data', JSON.stringify(appData));
+    closeModal();
+    renderCalendar();
+  }
+
+  function clearDay() {
+    if (!selectedDateKey) return;
+    delete appData[selectedDateKey];
+    localStorage.setItem('intimo_app_data', JSON.stringify(appData));
+    closeModal();
+    renderCalendar();
+  }
+
+  function closeModal() {
+    document.getElementById('dayModal').classList.add('hidden');
+    selectedDateKey = null;
+    renderCalendar();
+  }
+
+  function changeMonth(delta) {
+    currentDate.setMonth(currentDate.getMonth() + delta);
+    renderCalendar();
+  }
+
+  function renderStats(year, month) {
+    const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+    const yearPrefix = `${year}-`;
+    let monthTimes = 0, monthDays = 0, yearTimes = 0;
+    const tagCounts = {}, placeCounts = {}, weekdayCounts = [0,0,0,0,0,0,0];
+    const initCounts = { p1: 0, p2: 0, ambos: 0 };
+    let ratingSum = 0, ratingTotal = 0;
+    const activeDates = [];
+
+    Object.entries(appData).forEach(([key, val]) => {
+      if (val.count > 0) {
+        activeDates.push(key);
+        if (key.startsWith(monthPrefix)) {
+          monthTimes += val.count;
+          monthDays += 1;
+        }
+        if (key.startsWith(yearPrefix)) {
+          yearTimes += val.count;
+        }
+        const d = new Date(key + "T12:00:00");
+        weekdayCounts[d.getDay()] += val.count;
+
+        if (val.initiator && initCounts[val.initiator] !== undefined) {
+          initCounts[val.initiator]++;
+        }
+        if (val.place) {
+          placeCounts[val.place] = (placeCounts[val.place] || 0) + 1;
+        }
+        if (val.rating > 0) {
+          ratingSum += val.rating;
+          ratingTotal++;
+        }
+      }
+      if (val.tags) {
+        val.tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+      }
+    });
+
+    document.getElementById('statTotalTimes').textContent = monthTimes;
+    document.getElementById('statActiveDays').textContent = monthDays;
+    document.getElementById('statYearTotal').textContent = yearTimes;
+    document.getElementById('statRatingAvg').textContent = ratingTotal > 0 ? `⭐ ${(ratingSum / ratingTotal).toFixed(1)}` : '⭐ -';
+
+    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const maxDayVal = Math.max(...weekdayCounts);
+    document.getElementById('statFavDay').textContent = maxDayVal > 0 ? dayNames[weekdayCounts.indexOf(maxDayVal)] : '-';
+
+    activeDates.sort();
+    if (activeDates.length > 0) {
+      const lastDate = new Date(activeDates[activeDates.length - 1] + "T12:00:00");
+      const today = new Date();
+      today.setHours(12,0,0,0);
+      const diffDays = Math.round((today - lastDate) / (1000 * 60 * 60 * 24));
+      document.getElementById('lastTimeText').textContent = diffDays === 0 ? "¡Hoy!" : diffDays === 1 ? "Ayer" : `Hace ${diffDays} días`;
+
+      let maxStreak = 1, curStreak = 1;
+      for (let i = 1; i < activeDates.length; i++) {
+        const d1 = new Date(activeDates[i-1] + "T12:00:00");
+        const d2 = new Date(activeDates[i] + "T12:00:00");
+        if (Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) === 1) {
+          curStreak++;
+          maxStreak = Math.max(maxStreak, curStreak);
+        } else {
+          curStreak = 1;
+        }
+      }
+      document.getElementById('streakText').textContent = `Racha máx: ${maxStreak} días`;
+    } else {
+      document.getElementById('lastTimeText').textContent = "Sin registros";
+    }
+
+    const totalInit = initCounts.p1 + initCounts.p2 + initCounts.ambos;
+    const initDiv = document.getElementById('initiatorStats');
+    if (totalInit === 0) {
+      initDiv.innerHTML = '<p class="text-slate-500">Sin datos aún</p>';
+    } else {
+      initDiv.innerHTML = `
+        <div class="flex justify-between"><span>${appConfig.name1}:</span><span class="font-bold text-rose-400">${initCounts.p1}</span></div>
+        <div class="flex justify-between"><span>${appConfig.name2}:</span><span class="font-bold text-purple-400">${initCounts.p2}</span></div>
+        <div class="flex justify-between"><span>Ambos:</span><span class="font-bold text-emerald-400">${initCounts.ambos}</span></div>
+      `;
+    }
+
+    const placesDiv = document.getElementById('placesStats');
+    const sortedPlaces = Object.entries(placeCounts).sort((a,b) => b[1] - a[1]).slice(0, 3);
+    if (sortedPlaces.length === 0) {
+      placesDiv.innerHTML = '<p class="text-slate-500">Sin datos aún</p>';
+    } else {
+      placesDiv.innerHTML = sortedPlaces.map(([p, c]) => `<div class="flex justify-between"><span>${p}</span><span class="text-slate-400">${c}</span></div>`).join('');
+    }
+
+    const topContainer = document.getElementById('topTagsStats');
+    topContainer.innerHTML = '';
+    const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    if (sortedTags.length === 0) {
+      topContainer.innerHTML = '<p class="text-slate-500">Todavía no hay detalles registrados.</p>';
+      return;
+    }
+
+    const maxCount = sortedTags[0][1];
+    sortedTags.forEach(([tag, count]) => {
+      const pct = Math.round((count / maxCount) * 100);
+      topContainer.innerHTML += `
+        <div>
+          <div class="flex justify-between mb-0.5">
+            <span>${tag}</span>
+            <span class="text-slate-400">${count} veces</span>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-1.5">
+            <div class="bg-rose-500 h-1.5 rounded-full" style="width: ${pct}%"></div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  function exportData() {
+    const payload = { appConfig, appData };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `intimo_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+  }
+
+  function importData(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target.result);
+        if (parsed.appData) {
+          appData = { ...appData, ...parsed.appData };
+          if (parsed.appConfig) appConfig = { ...appConfig, ...parsed.appConfig };
+        } else {
+          appData = { ...appData, ...parsed };
+        }
+        localStorage.setItem('intimo_app_data', JSON.stringify(appData));
+        localStorage.setItem('intimo_app_config', JSON.stringify(appConfig));
+        renderCalendar();
+        alert('Datos importados correctamente.');
+      } catch (err) {
+        alert('Archivo inválido');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  renderCalendar();
+</script>
+</body>
+</html>
