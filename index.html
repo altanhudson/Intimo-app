@@ -685,6 +685,33 @@
         orgasmP2,
         notes
       };
+
+      // AUTOMATIZACIÓN INTELIGENTE DE RANGO DE PERÍODO:
+      // Si el usuario marca un día como período, busca hacia atrás (hasta 10 días) el último día de período anterior.
+      // Si encuentra uno, rellena automáticamente todos los días intermedios con period = true.
+      if (period) {
+        const currDate = new Date(selectedDateKey + "T12:00:00");
+        for (let i = 1; i <= 10; i++) {
+          const prevDate = new Date(currDate);
+          prevDate.setDate(prevDate.getDate() - i);
+          const prevKey = formatKey(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate());
+          if (appData[prevKey] && appData[prevKey].period) {
+            let fillDate = new Date(prevDate);
+            fillDate.setDate(fillDate.getDate() + 1);
+            while (fillDate < currDate) {
+              const fillKey = formatKey(fillDate.getFullYear(), fillDate.getMonth(), fillDate.getDate());
+              if (!appData[fillKey]) {
+                appData[fillKey] = { count: 0, period: true, flow: tempFlow || 'Medio', tags: [], symptoms: [], notes: '' };
+              } else {
+                appData[fillKey].period = true;
+                if (!appData[fillKey].flow) appData[fillKey].flow = tempFlow || 'Medio';
+              }
+              fillDate.setDate(fillDate.getDate() + 1);
+            }
+            break;
+          }
+        }
+      }
     }
 
     localStorage.setItem('intimo_app_data', JSON.stringify(appData));
@@ -744,8 +771,6 @@
           ratingTotal++;
         }
       }
-      // Hacemos que el ranking de Formas / Prácticas SOLO tome registros desde el 1 de marzo de 2026 en adelante 
-      // (cuando empezaron a usar esta app nueva), omitiendo los masivos importados de Flo.
       if (val.tags && key >= "2026-03-01") {
         val.tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
       }
